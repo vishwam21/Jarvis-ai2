@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JARVIS AI HUD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&display=swap');
+        
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #030712;
+            color: #00f3ff;
+            overflow-x: hidden;
+        }
+        .font-hud {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .glow-cyan {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.7), 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+        .border-hud {
+            border: 1px solid rgba(0, 243, 255, 0.4);
+            box-shadow: inset 0 0 15px rgba(0, 243, 255, 0.15), 0 0 15px rgba(0, 243, 255, 0.15);
+        }
+        .hud-gradient {
+            background: linear-gradient(135deg, rgba(0,243,255,0.1) 0%, rgba(3,7,18,0.9) 100%);
+        }
+        @keyframes hudPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(0, 243, 255, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+        .listening-pulse {
+            animation: hudPulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4">
+
+    <!-- HEADER -->
+    <header class="flex justify-between items-center border-b border-cyan-500/30 pb-3">
+        <div>
+            <h1 class="font-hud text-xl font-bold tracking-widest glow-cyan">J.A.R.V.I.S.</h1>
+            <p class="text-xs text-cyan-400/60 uppercase tracking-wider">Status: <span id="sys-status" class="text-cyan-300">STANDBY</span></p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="switchTab('hud')" id="btn-tab-hud" class="px-3 py-1 text-xs font-hud border-hud bg-cyan-950/40 text-cyan-300 rounded">HUD</button>
+            <button onclick="switchTab('settings')" id="btn-tab-settings" class="px-3 py-1 text-xs font-hud border border-cyan-500/20 text-cyan-500/60 rounded">CONFIG</button>
+        </div>
+    </header>
+
+    <!-- HUD VIEW -->
+    <main id="view-hud" class="flex-1 flex flex-col items-center justify-center my-4 space-y-4">
+        <div class="relative flex items-center justify-center">
+            <div id="mic-orb" onclick="toggleListening()" class="w-32 h-32 rounded-full hud-gradient border-2 border-cyan-400 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 shadow-[0_0_30px_rgba(0,243,255,0.3)]">
+                <svg class="w-10 h-10 text-cyan-300 mb-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-12 0v1.5a6 6 0 006 6zM12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"></path>
+                </svg>
+                <span id="mic-text" class="font-hud text-[9px] tracking-wider text-cyan-300">TAP TO SPEAK</span>
+            </div>
+        </div>
+
+        <div class="w-full max-w-md border-hud hud-gradient p-3 rounded-lg space-y-2">
+            <div class="flex justify-between items-center text-xs text-cyan-400/60 border-b border-cyan-500/20 pb-1">
+                <span>COMM_LOG</span>
+                <button onclick="clearLog()" class="hover:text-cyan-300">[CLEAR]</button>
+            </div>
+            <div id="chat-log" class="h-28 overflow-y-auto space-y-2 text-sm pr-2 text-cyan-200">
+                <div class="text-cyan-400/70">> Systems online. Say "Jarvis" or tap core to begin.</div>
+            </div>
+        </div>
+
+        <!-- Quick Control Grid -->
+        <div class="grid grid-cols-3 gap-2 w-full max-w-md">
+            <button onclick="executeQuickCommand('Open WhatsApp')" class="border border-cyan-500/30 bg-cyan-950/20 py-2 px-1 text-xs text-cyan-300 rounded hover:bg-cyan-900/40">WhatsApp</button>
+            <button onclick="executeQuickCommand('Open YouTube')" class="border border-cyan-500/30 bg-cyan-950/20 py-2 px-1 text-xs text-cyan-300 rounded hover:bg-cyan-900/40">YouTube</button>
+            <button onclick="executeQuickCommand('Open Spotify')" class="border border-cyan-500/30 bg-cyan-950/20 py-2 px-1 text-xs text-cyan-300 rounded hover:bg-cyan-900/40">Spotify</button>
+            <button onclick="executeQuickCommand('What time is it')" class="border border-cyan-500/30 bg-cyan-950/20 py-2 px-1 text-xs text-cyan-300 rounded hover:bg-cyan-900/40">Time & Date</button>
+            <button onclick="executeQuickCommand('Toggle flashlight')" class="border border-cyan-500/30 bg-cyan-950/20 py-2 px-1 text-xs text-cyan-300 rounded hover:bg-cyan-900/40">Flashlight</button>
+            <button onclick="executeQuickCommand('Open settings')" class="border border-cyan-500/30 bg-cyan-950/20 py-2 px-1 text-xs text-cyan-300 rounded hover:bg-cyan-900/40">Settings</button>
+        </div>
+
+        <div class="flex gap-2 w-full max-w-md">
+            <button onclick="startForegroundService()" class="flex-1 border border-cyan-500/30 bg-cyan-950/40 py-2 text-xs text-cyan-300 rounded">Start BG Service</button>
+            <button onclick="stopForegroundService()" class="flex-1 border border-cyan-500/30 bg-cyan-950/40 py-2 text-xs text-cyan-300 rounded">Stop BG Service</button>
+            <button onclick="window.speechSynthesis.cancel()" class="px-4 border border-cyan-500/30 bg-cyan-950/40 py-2 text-xs text-cyan-300 rounded">Mute</button>
+        </div>
+    </main>
+
+    <!-- SETTINGS VIEW -->
+    <main id="view-settings" class="flex-1 flex flex-col my-6 space-y-4 hidden">
+        <h2 class="font-hud text-lg text-cyan-300">Neural Network & API Settings</h2>
+        <div class="space-y-4 border-hud hud-gradient p-4 rounded-lg">
+            <div>
+                <label class="block text-xs text-cyan-400/80 mb-1">OpenRouter API Key</label>
+                <input type="password" id="input-apikey" placeholder="sk-or-v1-..." class="w-full bg-cyan-950/60 border border-cyan-500/40 rounded p-2 text-cyan-200 text-sm focus:outline-none focus:border-cyan-300">
+            </div>
+            
+            <!-- Model Selection Dropdown -->
+            <div>
+                <label class="block text-xs text-cyan-400/80 mb-1">Select Neural AI Model</label>
+                <select id="select-model" class="w-full bg-cyan-950/80 border border-cyan-500/40 rounded p-2 text-cyan-200 text-sm focus:outline-none focus:border-cyan-300">
+                    <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Recommended)</option>
+                    <option value="openai/gpt-4o">GPT-4o</option>
+                    <option value="openai/gpt-4o-mini">GPT-4o Mini (Fast)</option>
+                    <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
+                    <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+                    <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                </select>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveSettings()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-cyan-950 font-hud font-bold py-2 rounded text-xs">SAVE CONFIG</button>
+                <button onclick="testApiKey()" class="px-4 border border-cyan-500/40 text-cyan-300 font-hud py-2 rounded text-xs">TEST</button>
+            </div>
+        </div>
+
+        <div class="border-hud hud-gradient p-4 rounded-lg space-y-2">
+            <button onclick="openAccessibilitySettings()" class="w-full border border-cyan-500/40 text-cyan-300 py-2 rounded text-xs font-hud">OPEN ANDROID ACCESSIBILITY SETTINGS</button>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center text-[10px] text-cyan-500/40 border-t border-cyan-500/20 pt-2">
+        JARVIS KERNEL v2.0 • FULL DEVICE CONTROL ACTIVE
+    </footer>
+
+    <script>
+        function switchTab(tab) {
+            if (tab === 'hud') {
+                document.getElementById('view-hud').classList.remove('hidden');
+                document.getElementById('view-settings').classList.add('hidden');
+                document.getElementById('btn-tab-hud').className = "px-3 py-1 text-xs font-hud border-hud bg-cyan-950/40 text-cyan-300 rounded";
+                document.getElementById('btn-tab-settings').className = "px-3 py-1 text-xs font-hud border border-cyan-500/20 text-cyan-500/60 rounded";
+            } else {
+                document.getElementById('view-hud').classList.add('hidden');
+                document.getElementById('view-settings').classList.remove('hidden');
+                document.getElementById('btn-tab-settings').className = "px-3 py-1 text-xs font-hud border-hud bg-cyan-950/40 text-cyan-300 rounded";
+                document.getElementById('btn-tab-hud').className = "px-3 py-1 text-xs font-hud border border-cyan-500/20 text-cyan-500/60 rounded";
+                
+                // Load saved API settings
+                document.getElementById('input-apikey').value = localStorage.getItem('jarvis_api_key') || '';
+                const savedModel = localStorage.getItem('jarvis_model') || 'anthropic/claude-3.5-sonnet';
+                const modelSelect = document.getElementById('select-model');
+                if (modelSelect) {
+                    modelSelect.value = savedModel;
+                }
+            }
+        }
+
+        function saveSettings() {
+            const key = document.getElementById('input-apikey').value.trim();
+            const model = document.getElementById('select-model').value;
+            
+            localStorage.setItem('jarvis_api_key', key);
+            localStorage.setItem('jarvis_model', model);
+            
+            appendLog('System', `Configuration saved. Model set to: ${model}`);
+            switchTab('hud');
+        }
+
+        async function testApiKey() {
+            const apiKey = document.getElementById('input-apikey').value.trim();
+            const model = document.getElementById('select-model').value;
+            if (!apiKey) {
+                alert('Please enter an API key first.');
+                return;
+            }
+            appendLog('System', 'Testing OpenRouter connection...');
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ role: 'user', content: 'Say hello in 3 words.' }]
+                    })
+                });
+                if (res.ok) {
+                    alert('API Connection Successful!');
+                    appendLog('System', 'API test passed.');
+                } else {
+                    const err = await res.text();
+                    alert(`API Error: ${err}`);
+                }
+            } catch (e) {
+                alert(`Network error: ${e.message}`);
+            }
+        }
+
+        function appendLog(sender, text) {
+            const log = document.getElementById('chat-log');
+            log.innerHTML += `<div><span class="text-cyan-400 font-bold">[${sender}]:</span> ${text}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('chat-log').innerHTML = '<div class="text-cyan-400/70">> Comm log purged. Ready.</div>';
+        }
+
+        // Smooth Text-To-Speech Output
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05;
+                utterance.pitch = 0.95;
+                utterance.lang = 'en-IN';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Speech Recognition
+        let isListening = false;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+        if (recognition) {
+            recognition.lang = 'en-IN';
+            recognition.onresult = (e) => {
+                const query = e.results[0][0].transcript;
+                appendLog('You', query);
+                processCommand(query);
+            };
+            recognition.onend = () => { 
+                isListening = false; 
+                document.getElementById('sys-status').innerText = 'STANDBY'; 
+                document.getElementById('mic-orb').classList.remove('listening-pulse', 'border-cyan-300');
+            };
+        }
+
+        function toggleListening() {
+            if (!recognition) {
+                alert('Speech recognition is not supported in this view.');
+                return;
+            }
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+                isListening = true;
+                document.getElementById('sys-status').innerText = 'LISTENING';
+                document.getElementById('mic-orb').classList.add('listening-pulse', 'border-cyan-300');
+            }
+        }
+
+        // Voice Command Parser
+        async function processCommand(query) {
+            const lower = query.toLowerCase();
+
+            // 1. Time & Date
+            if (lower.includes('time') || lower.includes('date')) {
+                const now = new Date();
+                const str = now.toLocaleTimeString() + ', ' + now.toLocaleDateString();
+                appendLog('JARVIS', str);
+                speak(`Sir, the current time is ${now.toLocaleTimeString()}`);
+                return;
+            }
+
+            // 2. Open Applications
+            if (lower.includes('open ')) {
+                const appName = lower.replace('open ', '').trim();
+                appendLog('JARVIS', `Opening ${appName}...`);
+                speak(`Opening ${appName}, sir.`);
+                if (window.MainActivity && window.MainActivity.openAppByName) {
+                    window.MainActivity.openAppByName(appName);
+                } else {
+                    if (appName.includes('youtube')) window.open('https://youtube.com', '_blank');
+                    else if (appName.includes('google')) window.open('https://google.com', '_blank');
+                    else if (appName.includes('whatsapp')) window.open('https://wa.me', '_blank');
+                }
+                return;
+            }
+
+            // 3. Flashlight
+            if (lower.includes('flashlight') || lower.includes('torch')) {
+                appendLog('JARVIS', 'Toggling flashlight...');
+                speak('Toggling flashlight.');
+                if (window.MainActivity && window.MainActivity.toggleFlashlight) {
+                    window.MainActivity.toggleFlashlight();
+                }
+                return;
+            }
+
+            // 4. Volume Control
+            if (lower.includes('volume up') || lower.includes('increase volume')) {
+                appendLog('JARVIS', 'Increasing volume...');
+                speak('Increasing volume.');
+                if (window.MainActivity && window.MainActivity.adjustVolume) {
+                    window.MainActivity.adjustVolume(1);
+                }
+                return;
+            }
+            if (lower.includes('volume down') || lower.includes('decrease volume')) {
+                appendLog('JARVIS', 'Decreasing volume...');
+                speak('Decreasing volume.');
+                if (window.MainActivity && window.MainActivity.adjustVolume) {
+                    window.MainActivity.adjustVolume(-1);
+                }
+                return;
+            }
+
+            // 5. System Settings
+            if (lower.includes('settings')) {
+                appendLog('JARVIS', 'Opening device settings...');
+                speak('Opening settings.');
+                if (window.MainActivity && window.MainActivity.openSystemSettings) {
+                    window.MainActivity.openSystemSettings();
+                }
+                return;
+            }
+
+            // 6. OpenRouter AI Query
+            const apiKey = localStorage.getItem('jarvis_api_key');
+            const model = localStorage.getItem('jarvis_model') || 'anthropic/claude-3.5-sonnet';
+
+            if (!apiKey) {
+                appendLog('JARVIS', 'API key missing.');
+                speak('Sir, please configure your OpenRouter API key in settings.');
+                switchTab('settings');
+                return;
+            }
+
+            appendLog('JARVIS', 'Querying neural network...');
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { role: 'system', content: 'You are J.A.R.V.I.S., an advanced Iron Man assistant. Address the user as "sir". Keep answers concise and spoken-friendly.' },
+                            { role: 'user', content: query }
+                        ]
+                    })
+                });
+                const data = await res.json();
+                const reply = data.choices[0].message.content;
+                appendLog('JARVIS', reply);
+                speak(reply);
+            } catch (e) {
+                appendLog('JARVIS', 'Neural network communication error.');
+                speak('Apologies sir, I encountered a network failure.');
+            }
+        }
+
+        function executeQuickCommand(cmd) {
+            appendLog('You', cmd);
+            processCommand(cmd);
+        }
+
+        // Native Bridges
+        function startForegroundService() { 
+            if (window.MainActivity && window.MainActivity.startJarvisService) {
+                window.MainActivity.startJarvisService(); 
+            } else {
+                alert('Foreground service active in native Android APK.');
+            }
+        }
+        
+        function stopForegroundService() { 
+            if (window.MainActivity && window.MainActivity.stopJarvisService) {
+                window.MainActivity.stopJarvisService(); 
+            } else {
+                alert('Foreground service stopped.');
+            }
+        }
+        
+        function openAccessibilitySettings() { 
+            if (window.MainActivity && window.MainActivity.openAccessibilitySettings) {
+                window.MainActivity.openAccessibilitySettings(); 
+            } else {
+                alert('Accessibility settings bridge available only in APK.');
+            }
+        }
+    </script>
+</body>
+</html>
